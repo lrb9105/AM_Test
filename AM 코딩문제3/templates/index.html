@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lightweight Chart Example</title>
+<style>
+    #chart {
+        width: 100%;
+        height: 400px;
+        margin: 0;
+    }
+    #buttons {
+        margin: 20px;
+    }
+    button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+<div id="buttons">
+    <button onclick="loadSpotData()">Spot</button>
+    <button onclick="loadFutureData()">Future</button>
+</div>
+<div id="chart"></div>
+
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+    var initialSpotData = {{ initial_spot_data|safe }};
+    var initialFutureData = {{ initial_future_data|safe }};
+
+    var socket = io.connect('http://' + document.domain + ':' + location.port);
+    var chart = LightweightCharts.createChart(document.getElementById('chart'), {
+        width: document.getElementById('chart').clientWidth,
+        height: document.getElementById('chart').clientHeight,
+    });
+
+    var candleSeries = chart.addCandlestickSeries();
+    var currentData = [];
+
+    function loadSpotData() {
+        currentData = initialSpotData;
+        candleSeries.setData(currentData);
+        socket.off('future_data');
+        socket.on('spot_data', function(data) {
+            updateChartData(data);
+        });
+    }
+
+    function loadFutureData() {
+        currentData = initialFutureData;
+        candleSeries.setData(currentData);
+        socket.off('spot_data');
+        socket.on('future_data', function(data) {
+            updateChartData(data);
+        });
+    }
+
+    function updateChartData(newData) {
+        if((currentData[currentData.length - 1].time === newData.time) && (currentData[currentData.length - 1].close !== newData.close)) {
+            currentData[currentData.length - 1] = newData
+        } else if(currentData[currentData.length - 1].time !== newData.time) {
+            currentData.push(newData)
+        }
+        // Update the chart
+        candleSeries.setData(currentData);
+    }
+
+    window.addEventListener('resize', () => {
+        chart.applyOptions({
+            width: document.getElementById('chart').clientWidth,
+            height: document.getElementById('chart').clientHeight,
+        });
+    });
+
+    // Load initial spot data on page load
+    loadSpotData();
+</script>
+</body>
+</html>
